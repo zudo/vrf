@@ -19,7 +19,7 @@ pub struct VRF {
 }
 impl VRF {
     pub fn sign<Hash512: Digest<OutputSize = U64>, Hash256: Digest<OutputSize = U32>>(
-        csprng: &mut impl CryptoRngCore,
+        rng: &mut impl CryptoRngCore,
         secret: [u8; 32],
         alpha: &[u8],
     ) -> VRF {
@@ -29,7 +29,7 @@ impl VRF {
             &Hash512::new().chain_update(alpha).finalize().into(),
         );
         let d = (c * a).compress().to_bytes();
-        let e = scalar::random(csprng);
+        let e = scalar::random(rng);
         let f = (G * e).compress().to_bytes();
         let g = (c * e).compress().to_bytes();
         let h = Hash256::new()
@@ -93,15 +93,15 @@ mod tests {
     use sha2::Sha512;
     #[test]
     fn test() {
-        let csprng = &mut OsRng;
-        let secret = scalar::random(csprng);
+        let rng = &mut OsRng;
+        let secret = scalar::random(rng);
         let public = (G * secret).compress().to_bytes();
-        let public_fake = (G * scalar::random(csprng)).compress().to_bytes();
+        let public_fake = (G * scalar::random(rng)).compress().to_bytes();
         let secret = secret.to_bytes();
         let alpha = [0, 1, 2, 3];
         let alpha_fake = [3, 2, 1, 0];
-        let vrf_0 = VRF::sign::<Sha512, Sha256>(csprng, secret, &alpha);
-        let vrf_1 = VRF::sign::<Sha512, Sha256>(csprng, secret, &alpha);
+        let vrf_0 = VRF::sign::<Sha512, Sha256>(rng, secret, &alpha);
+        let vrf_1 = VRF::sign::<Sha512, Sha256>(rng, secret, &alpha);
         assert_eq!(vrf_0.d, vrf_1.d);
         assert_ne!(vrf_0.h, vrf_1.h);
         assert_ne!(vrf_0.j, vrf_1.j);
@@ -110,7 +110,7 @@ mod tests {
         assert_eq!(beta_0, beta_1);
         assert!(vrf_0.verify::<Sha512, Sha256, Sha224>(&public, &alpha, &beta_0));
         assert!(vrf_1.verify::<Sha512, Sha256, Sha224>(&public, &alpha, &beta_1));
-        let vrf = VRF::sign::<Sha512, Sha256>(csprng, secret, &alpha);
+        let vrf = VRF::sign::<Sha512, Sha256>(rng, secret, &alpha);
         let beta = vrf.beta::<Sha224>();
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public_fake, &alpha, &beta));
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public, &alpha_fake, &beta));

@@ -5,11 +5,11 @@ use sha2::Sha512;
 use vrf::scalar;
 use vrf::VRF;
 fn main() {
-    let csprng = &mut OsRng;
-    let secret = scalar::random(csprng).to_bytes();
+    let rng = &mut OsRng;
+    let secret = scalar::random(rng).to_bytes();
     let alpha = [0; 32];
-    let vrf_0 = VRF::sign::<Sha512, Sha256>(csprng, secret, &alpha);
-    let vrf_1 = VRF::sign::<Sha512, Sha256>(csprng, secret, &alpha);
+    let vrf_0 = VRF::sign::<Sha512, Sha256>(rng, secret, &alpha);
+    let vrf_1 = VRF::sign::<Sha512, Sha256>(rng, secret, &alpha);
     let beta_0 = vrf_0.beta::<Sha224>();
     let beta_1 = vrf_1.beta::<Sha224>();
     println!("beta_0 {}", hex::encode(beta_0));
