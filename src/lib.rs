@@ -68,19 +68,18 @@ impl VRF {
             &Hash512::new().chain_update(alpha).finalize().into(),
         );
         let gamma = secret.0 * a;
-        let k = scalar::random(rng);
-        let u = k * G;
-        let v = k * a;
-        let h = Hash256::new()
-            .chain_update(alpha)
-            .chain_update(secret.public().0.compress().to_bytes())
-            .chain_update(gamma.compress().to_bytes())
-            .chain_update(u.compress().to_bytes())
-            .chain_update(v.compress().to_bytes())
-            .finalize()
-            .into();
-        let c = Scalar::from_bytes_mod_order(h);
-        let s = k - c * secret.0;
+        let r = scalar::random(rng);
+        let c = Scalar::from_bytes_mod_order(
+            Hash256::new()
+                .chain_update(alpha)
+                .chain_update(secret.public().0.compress().to_bytes())
+                .chain_update(gamma.compress().to_bytes())
+                .chain_update((r * G).compress().to_bytes())
+                .chain_update((r * a).compress().to_bytes())
+                .finalize()
+                .into(),
+        );
+        let s = r - c * secret.0;
         VRF { gamma, c, s }
     }
     pub fn verify<
@@ -98,17 +97,16 @@ impl VRF {
         let a = RistrettoPoint::from_uniform_bytes(
             &Hash512::new().chain_update(alpha).finalize().into(),
         );
-        let u = self.c * public.0 + self.s * G;
-        let v = self.c * self.gamma + self.s * a;
-        let h = Hash256::new()
-            .chain_update(alpha)
-            .chain_update(public.0.compress().to_bytes())
-            .chain_update(self.gamma.compress().to_bytes())
-            .chain_update(u.compress().to_bytes())
-            .chain_update(v.compress().to_bytes())
-            .finalize()
-            .into();
-        let c = Scalar::from_bytes_mod_order(h);
+        let c = Scalar::from_bytes_mod_order(
+            Hash256::new()
+                .chain_update(alpha)
+                .chain_update(public.0.compress().to_bytes())
+                .chain_update(self.gamma.compress().to_bytes())
+                .chain_update((self.c * public.0 + self.s * G).compress().to_bytes())
+                .chain_update((self.c * self.gamma + self.s * a).compress().to_bytes())
+                .finalize()
+                .into(),
+        );
         c.as_bytes() == self.c.as_bytes() && beta == self.beta::<Hash>().as_slice()
     }
     pub fn beta<Hash: Digest>(&self) -> GenericArray<u8, <Hash>::OutputSize> {
