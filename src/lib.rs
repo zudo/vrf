@@ -54,11 +54,11 @@ impl VRF {
         alpha: &[u8],
         beta: &[u8],
     ) -> bool {
-        let b = match point::from(public) {
+        let b = match point::from_slice(public) {
             Some(x) => x,
             None => return false,
         };
-        let d = match point::from(&self.d) {
+        let d = match point::from_slice(&self.d) {
             Some(x) => x,
             None => return false,
         };
