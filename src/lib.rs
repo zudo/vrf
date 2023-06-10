@@ -125,7 +125,7 @@ mod tests {
     use sha2::Sha256;
     use sha2::Sha512;
     #[test]
-    fn test() {
+    fn sign_verify() {
         let rng = &mut OsRng;
         let secret = Secret::new(rng);
         let public = secret.public();
@@ -142,7 +142,7 @@ mod tests {
         assert!(vrf_1.verify::<Sha512, Sha256, Sha224>(&public, &alpha, &beta_1));
     }
     #[test]
-    fn test_fake() {
+    fn sign_verify_fake() {
         let rng = &mut OsRng;
         let secret = Secret::new(rng);
         let public = secret.public();
@@ -154,5 +154,18 @@ mod tests {
         let alpha_fake = [3, 2, 1, 0];
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public_fake, &alpha, &beta));
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public, &alpha_fake, &beta));
+    }
+    #[test]
+    fn to_bytes_from_slice() {
+        let rng = &mut OsRng;
+        let secret = Secret::new(rng);
+        let public = secret.public();
+        let vrf = VRF::sign::<Sha512, Sha256>(rng, &secret, &[]);
+        let secret_bytes = secret.to_bytes();
+        let public_bytes = public.to_bytes();
+        let vrf_bytes = vrf.to_bytes();
+        assert_eq!(secret, Secret::from_canonical(secret_bytes).unwrap());
+        assert_eq!(public, Public::from_slice(&public_bytes).unwrap());
+        assert_eq!(vrf, VRF::from_slice(&vrf_bytes).unwrap());
     }
 }
