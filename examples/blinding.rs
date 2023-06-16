@@ -2,11 +2,11 @@ use rand_core::OsRng;
 use sha2::Sha224;
 use sha2::Sha256;
 use sha2::Sha512;
-use vrf::Secret;
+use vrf::scalar_random;
 use vrf::VRF;
 fn main() {
     let rng = &mut OsRng;
-    let secret = Secret::new(rng);
+    let secret = scalar_random(rng);
     let alpha = [0; 32];
     let vrf_0 = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
     let vrf_1 = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);

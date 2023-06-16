@@ -20,35 +20,6 @@ pub fn scalar_from_canonical(bytes: [u8; 32]) -> Option<Scalar> {
     Scalar::from_canonical_bytes(bytes).into()
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Public(RistrettoPoint);
-impl Public {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.compress().to_bytes()
-    }
-    pub fn from_slice(bytes: &[u8; 32]) -> Option<Public> {
-        Some(Public(point_from_slice(bytes)?))
-    }
-}
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct Secret(Scalar);
-impl Secret {
-    pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes()
-    }
-    pub fn as_bytes(&self) -> &[u8; 32] {
-        self.0.as_bytes()
-    }
-    pub fn from_canonical(bytes: [u8; 32]) -> Option<Secret> {
-        Some(Secret(scalar_from_canonical(bytes)?))
-    }
-    pub fn public(&self) -> Public {
-        Public(self.0 * G)
-    }
-    pub fn new(rng: &mut impl CryptoRngCore) -> Secret {
-        Secret(scalar_random(rng))
-    }
-}
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VRF {
     gamma: RistrettoPoint,
     c: Scalar,
@@ -70,26 +41,26 @@ impl VRF {
     }
     pub fn sign<Hash512: Digest<OutputSize = U64>, Hash256: Digest<OutputSize = U32>>(
         rng: &mut impl CryptoRngCore,
-        secret: &Secret,
+        secret: &Scalar,
         alpha: impl AsRef<[u8]>,
     ) -> VRF {
         let alpha = alpha.as_ref();
         let a = RistrettoPoint::from_uniform_bytes(
             &Hash512::new().chain_update(alpha).finalize().into(),
         );
-        let gamma = secret.0 * a;
+        let gamma = secret * a;
         let r = scalar_random(rng);
         let c = Scalar::from_bytes_mod_order(
             Hash256::new()
                 .chain_update(alpha)
-                .chain_update(secret.public().0.compress().to_bytes())
+                .chain_update((secret * G).compress().to_bytes())
                 .chain_update(gamma.compress().to_bytes())
                 .chain_update((r * G).compress().to_bytes())
                 .chain_update((r * a).compress().to_bytes())
                 .finalize()
                 .into(),
         );
-        let s = r - c * secret.0;
+        let s = r - c * secret;
         VRF { gamma, c, s }
     }
     pub fn verify<
@@ -98,7 +69,7 @@ impl VRF {
         Hash: Digest,
     >(
         &self,
-        public: &Public,
+        public: &RistrettoPoint,
         alpha: impl AsRef<[u8]>,
         beta: impl AsRef<[u8]>,
     ) -> bool {
@@ -110,9 +81,9 @@ impl VRF {
         let c = Scalar::from_bytes_mod_order(
             Hash256::new()
                 .chain_update(alpha)
-                .chain_update(public.0.compress().to_bytes())
+                .chain_update(public.compress().to_bytes())
                 .chain_update(self.gamma.compress().to_bytes())
-                .chain_update((self.c * public.0 + self.s * G).compress().to_bytes())
+                .chain_update((self.c * public + self.s * G).compress().to_bytes())
                 .chain_update((self.c * self.gamma + self.s * a).compress().to_bytes())
                 .finalize()
                 .into(),
@@ -135,8 +106,8 @@ mod tests {
     #[test]
     fn sign_verify() {
         let rng = &mut OsRng;
-        let secret = Secret::new(rng);
-        let public = secret.public();
+        let secret = scalar_random(rng);
+        let public = secret * G;
         let alpha = [0, 1, 2, 3];
         let vrf_0 = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
         let vrf_1 = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
@@ -152,13 +123,13 @@ mod tests {
     #[test]
     fn sign_verify_fake() {
         let rng = &mut OsRng;
-        let secret = Secret::new(rng);
-        let public = secret.public();
+        let secret = scalar_random(rng);
+        let public = secret * G;
         let alpha = [0, 1, 2, 3];
         let vrf = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
         let beta = vrf.beta::<Sha224>();
-        let secret_fake = Secret::new(rng);
-        let public_fake = secret_fake.public();
+        let secret_fake = scalar_random(rng);
+        let public_fake = secret_fake * G;
         let alpha_fake = [3, 2, 1, 0];
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public_fake, &alpha, &beta));
         assert!(!vrf.verify::<Sha512, Sha256, Sha224>(&public, &alpha_fake, &beta));
@@ -166,14 +137,14 @@ mod tests {
     #[test]
     fn to_bytes_from_slice() {
         let rng = &mut OsRng;
-        let secret = Secret::new(rng);
-        let public = secret.public();
+        let secret = scalar_random(rng);
+        let public = secret * G;
         let vrf = VRF::sign::<Sha512, Sha256>(rng, &secret, &[]);
         let secret_bytes = secret.to_bytes();
-        let public_bytes = public.to_bytes();
+        let public_bytes = public.compress().to_bytes();
         let vrf_bytes = vrf.to_bytes();
-        assert_eq!(secret, Secret::from_canonical(secret_bytes).unwrap());
-        assert_eq!(public, Public::from_slice(&public_bytes).unwrap());
+        assert_eq!(secret, scalar_from_canonical(secret_bytes).unwrap());
+        assert_eq!(public, point_from_slice(&public_bytes).unwrap());
         assert_eq!(vrf, VRF::from_slice(&vrf_bytes).unwrap());
     }
 }
