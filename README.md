@@ -1,5 +1,8 @@
 # Verifiable random function
 
+[![Rust](https://github.com/zudo/vrf/actions/workflows/rust.yml/badge.svg)](https://github.com/zudo/vrf/actions/workflows/rust.yml)
+[![dependency status](https://deps.rs/repo/github/zudo/vrf/status.svg)](https://deps.rs/repo/github/zudo/vrf)
+
 Verifiable random function using the ristretto group on curve25519.
 
 ## Usage
