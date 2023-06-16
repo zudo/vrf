@@ -1,6 +1,5 @@
-pub mod point;
-pub mod scalar;
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::RistrettoPoint;
 use digest::generic_array::typenum::U32;
@@ -9,6 +8,17 @@ use digest::generic_array::GenericArray;
 use digest::Digest;
 use rand_core::CryptoRngCore;
 pub const G: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+pub fn point_from_slice(bytes: &[u8; 32]) -> Option<RistrettoPoint> {
+    CompressedRistretto::from_slice(bytes).unwrap().decompress()
+}
+pub fn scalar_random(rng: &mut impl CryptoRngCore) -> Scalar {
+    let mut bytes = [0u8; 32];
+    rng.fill_bytes(&mut bytes);
+    Scalar::from_bytes_mod_order(bytes)
+}
+pub fn scalar_from_canonical(bytes: [u8; 32]) -> Option<Scalar> {
+    Scalar::from_canonical_bytes(bytes).into()
+}
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Public(RistrettoPoint);
 impl Public {
@@ -16,7 +26,7 @@ impl Public {
         self.0.compress().to_bytes()
     }
     pub fn from_slice(bytes: &[u8; 32]) -> Option<Public> {
-        Some(Public(point::from_slice(bytes)?))
+        Some(Public(point_from_slice(bytes)?))
     }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29,13 +39,13 @@ impl Secret {
         self.0.as_bytes()
     }
     pub fn from_canonical(bytes: [u8; 32]) -> Option<Secret> {
-        Some(Secret(scalar::from_canonical(bytes)?))
+        Some(Secret(scalar_from_canonical(bytes)?))
     }
     pub fn public(&self) -> Public {
         Public(self.0 * G)
     }
     pub fn new(rng: &mut impl CryptoRngCore) -> Secret {
-        Secret(scalar::random(rng))
+        Secret(scalar_random(rng))
     }
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -53,9 +63,9 @@ impl VRF {
         bytes
     }
     pub fn from_slice(bytes: &[u8; 96]) -> Option<VRF> {
-        let gamma = point::from_slice(&bytes[..32].try_into().unwrap())?;
-        let c = scalar::from_canonical(bytes[32..64].try_into().unwrap())?;
-        let s = scalar::from_canonical(bytes[64..].try_into().unwrap())?;
+        let gamma = point_from_slice(&bytes[..32].try_into().unwrap())?;
+        let c = scalar_from_canonical(bytes[32..64].try_into().unwrap())?;
+        let s = scalar_from_canonical(bytes[64..].try_into().unwrap())?;
         Some(VRF { gamma, c, s })
     }
     pub fn sign<Hash512: Digest<OutputSize = U64>, Hash256: Digest<OutputSize = U32>>(
@@ -68,7 +78,7 @@ impl VRF {
             &Hash512::new().chain_update(alpha).finalize().into(),
         );
         let gamma = secret.0 * a;
-        let r = scalar::random(rng);
+        let r = scalar_random(rng);
         let c = Scalar::from_bytes_mod_order(
             Hash256::new()
                 .chain_update(alpha)
