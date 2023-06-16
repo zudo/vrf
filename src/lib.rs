@@ -1,13 +1,12 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::scalar::Scalar;
-use curve25519_dalek::RistrettoPoint;
-use digest::generic_array::typenum::U32;
-use digest::generic_array::typenum::U64;
-use digest::generic_array::GenericArray;
-use digest::Digest;
-use rand_core::CryptoRngCore;
-pub const G: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+pub use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
+pub use curve25519_dalek::ristretto::CompressedRistretto;
+pub use curve25519_dalek::scalar::Scalar;
+pub use curve25519_dalek::RistrettoPoint;
+pub use digest::generic_array::typenum::U32;
+pub use digest::generic_array::typenum::U64;
+pub use digest::generic_array::GenericArray;
+pub use digest::Digest;
+pub use rand_core::CryptoRngCore;
 pub fn point_from_slice(bytes: &[u8; 32]) -> Option<RistrettoPoint> {
     CompressedRistretto::from_slice(bytes).unwrap().decompress()
 }
@@ -53,9 +52,9 @@ impl VRF {
         let c = Scalar::from_bytes_mod_order(
             Hash256::new()
                 .chain_update(alpha)
-                .chain_update((secret * G).compress().to_bytes())
+                .chain_update((secret * RISTRETTO_BASEPOINT_POINT).compress().to_bytes())
                 .chain_update(gamma.compress().to_bytes())
-                .chain_update((r * G).compress().to_bytes())
+                .chain_update((r * RISTRETTO_BASEPOINT_POINT).compress().to_bytes())
                 .chain_update((r * a).compress().to_bytes())
                 .finalize()
                 .into(),
@@ -83,7 +82,11 @@ impl VRF {
                 .chain_update(alpha)
                 .chain_update(public.compress().to_bytes())
                 .chain_update(self.gamma.compress().to_bytes())
-                .chain_update((self.c * public + self.s * G).compress().to_bytes())
+                .chain_update(
+                    (self.c * public + self.s * RISTRETTO_BASEPOINT_POINT)
+                        .compress()
+                        .to_bytes(),
+                )
                 .chain_update((self.c * self.gamma + self.s * a).compress().to_bytes())
                 .finalize()
                 .into(),
@@ -110,8 +113,8 @@ mod tests {
     lazy_static! {
         static ref SECRET_0: Scalar = scalar_random(&mut OsRng);
         static ref SECRET_1: Scalar = scalar_random(&mut OsRng);
-        static ref PUBLIC_0: RistrettoPoint = *SECRET_0 * G;
-        static ref PUBLIC_1: RistrettoPoint = *SECRET_1 * G;
+        static ref PUBLIC_0: RistrettoPoint = *SECRET_0 * RISTRETTO_BASEPOINT_POINT;
+        static ref PUBLIC_1: RistrettoPoint = *SECRET_1 * RISTRETTO_BASEPOINT_POINT;
     }
     #[test]
     fn sign_verify() {

@@ -3,12 +3,12 @@ use sha2::Sha224;
 use sha2::Sha256;
 use sha2::Sha512;
 use vrf::scalar_random;
-use vrf::G;
+use vrf::RISTRETTO_BASEPOINT_POINT;
 use vrf::VRF;
 fn main() {
     let rng = &mut OsRng;
     let secret = scalar_random(rng);
-    let public = secret * G;
+    let public = secret * RISTRETTO_BASEPOINT_POINT;
     let alpha = [0; 32];
     let vrf = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
     let beta = vrf.beta::<Sha224>();

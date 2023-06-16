@@ -6,7 +6,7 @@ use sha2::Sha256;
 use sha2::Sha512;
 use test::Bencher;
 use vrf::scalar_random;
-use vrf::G;
+use vrf::RISTRETTO_BASEPOINT_POINT;
 use vrf::VRF;
 #[bench]
 fn sign(b: &mut Bencher) {
@@ -19,7 +19,7 @@ fn sign(b: &mut Bencher) {
 fn verify(b: &mut Bencher) {
     let rng = &mut OsRng;
     let secret = scalar_random(rng);
-    let public = secret * G;
+    let public = secret * RISTRETTO_BASEPOINT_POINT;
     let alpha = [0, 1, 2, 3];
     let vrf = VRF::sign::<Sha512, Sha256>(rng, &secret, &alpha);
     let beta = vrf.beta::<Sha224>();
